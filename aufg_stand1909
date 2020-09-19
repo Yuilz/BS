@@ -1,0 +1,95 @@
+/******************************************************************************
+
+                            Online C Compiler.
+                Code, Compile, Run and Debug C program online.
+Write your code in this editor and press "Run" button to compile and execute it.
+
+Schreiben Sie ein Programm das zwei Prozesse erzeugt.
+Die Prozesse sollen unabhängig voneinander Zufallszahlen zwischen 0 und 100 erstellen.
+Über drei Pipes sollen die Zahlen ausgetauscht werden.
+Wenn alle Zahlen gleich sind, geben alle Prozesse auf, dass sie gewonnen haben.
+*******************************************************************************/
+
+
+#include <stdlib.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <time.h>
+#define num_size 8
+
+int a, b, i, is, is2;
+char buf[num_size];
+time_t* tnow;
+
+/*int randNum(int val) {
+    srand(time(tnow));
+    val = rand() % 100;
+        
+    printf ("rand: %d\n", val);
+    return val;
+}*/
+int main(int argc, char* argv){
+    pid_t pid_A, pid_B, pid_C;
+    int pipe_A[2], pipe_B[2], pipe_C[2];
+    
+    
+    
+    //prozess erzeugen
+    if( pipe(pipe_A) < 0) {
+        perror("pipe_A");
+        exit(0);
+    }
+    else if((pid_A = fork()) > 0) {
+        //parent process
+        printf("parent process \n");
+        srand(time(tnow));
+        a = rand() % 100;
+        printf ("a: %d\n", a);
+        close(pipe_A[0]);
+        
+        write(pipe_A[1], &a , sizeof(int)); 
+    }    
+    else {
+        printf("child\n");
+        //close(pipe_A[1]);
+        //read(pipe_A[0], &a, sizeof(int));
+        exit(0);
+    }
+    
+    
+    
+    if( pipe(pipe_B) < 0) {
+        perror("pipe_B");
+        exit(0);
+    }
+    else if((pid_B = fork()) > 0) {
+        //parent process
+        printf("parent process 2\n");
+        srand(time(tnow));
+        b = rand() % 100;
+        printf ("b: %d\n", b);
+        close(pipe_B[0]);
+        write(pipe_B[1], &b , sizeof(int));
+    }
+    else {
+        printf("child2\n");
+        /*close(pipe_B[1]);
+        read(pipe_B[0], &b, sizeof(int));*/
+        exit(0);
+    }
+    
+    if(pipe(pipe_C) >= 0) {
+        close(pipe_C[1]);
+        read(pipe_C[0], &a, sizeof(int)); //read from pipe_A
+        read(pipe_C[0], &b, sizeof(int)); //read from pipe_B
+        if(a == b) {
+            printf("n: %d\nm: %d\n", a, b);
+            printf("gleichheit\n");
+        } else {
+            printf("nope\n"); 
+            printf("n: %d\nm: %d\n", a, b);
+        }
+    }
+    
+    return 0;
+}
