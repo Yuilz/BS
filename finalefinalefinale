@@ -1,0 +1,129 @@
+/******************************************************************************
+
+                            Online C Compiler.
+
+Schreiben Sie ein Programm das zwei Prozesse erzeugt.
+Die Prozesse sollen unabhängig voneinander Zufallszahlen zwischen 0 und 100 erstellen.
+Über drei Pipes sollen die Zahlen ausgetauscht werden.
+Wenn alle Zahlen gleich sind, geben alle Prozesse auf, dass sie gewonnen haben.
+*******************************************************************************/
+
+
+#include <stdlib.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <time.h>
+#include <sys/wait.h>
+
+
+
+time_t* tnow;
+int x, y;
+
+
+int main(int argc, char* argv){
+    pid_t pid_A, pid_B;
+    int pipeD[3][2];
+    
+    
+    
+    for(int i = 0; i <3; i++) {            //3 Pipes erzeugen
+        if(pipe(pipeD[i]) < 0) {
+            perror("pipe failed");         //bei Fehler 1 ausgeben
+            exit(1);
+        }
+    }
+    
+    
+    pid_A = fork();
+    if(pid_A < 0) {
+        return 2;
+    }
+    if(pid_A == 0) {
+        //1. Kindprozesses
+        close(pipeD[1][1]);                  //Schließen aller nicht benötigten Pipe-Enden
+        close(pipeD[1][0]);
+        close(pipeD[2][0]);
+        close(pipeD[2][1]);
+        close(pipeD[0][0]);
+        
+        
+        srand(time(tnow));                   //srand() nur einmal aufrufen 
+        x = rand() % 100;                    //Zufallszahle zwischen 0 und 100
+        //printf("randNum1: %d\n", x);       //zur Kontrolle
+        
+        write(pipeD[0][1], &x, sizeof(int)); //writing-Ende des 1. Kindprozesses
+        
+        
+        close(pipeD[0][1]);                  //Schließen des writing-Endes 
+        return 0;
+    }
+    pid_B = fork();
+    if(pid_B < 0) {
+        return 3;
+    }
+    if(pid_B == 0) {
+        //2. Kindprozesses
+        close(pipeD[0][0]);                 //Schließen aller nicht benötigten Pipe-Enden
+        close(pipeD[0][1]);
+        close(pipeD[2][1]);
+        close(pipeD[2][0]);
+        close(pipeD[1][0]);
+        
+        
+        y = rand() % 100;                   //Zufallszahl zwischen 0 und 100 erzeugen
+        //printf("randNum2: %d\n", y);      //zur Kontrolle
+        
+        write(pipeD[1][1], &y, sizeof(int)); //writing-Ende des 2. Kindprozesses
+        
+        
+        close(pipeD[1][1]);                 //Schließen des writing-Endes
+        return 0;
+    } else {
+        //Elternprozess von beiden Kindprozessen
+         
+        close(pipeD[2][0]);                 //Schließen aller nicht benötigten Pipe-Enden
+        close(pipeD[1][1]);                 
+        close(pipeD[2][1]);
+        close(pipeD[0][1]);
+        
+        read(pipeD[0][0], &x, sizeof(int)); //Werte aus dem 1. Kindprozess
+        read(pipeD[1][0], &y, sizeof(int));
+        
+        
+        close(pipeD[1][0]);                //Schließen der reading-Enden
+        close(pipeD[0][0]);
+        
+        wait(NULL);                        //auf Kindprozess warten
+            
+        do {                               //neue Werte in Kindprozesse schreiben
+            
+            printf("Ungleichheit\n");
+            close(pipeD[2][1]);
+            close(pipeD[0][0]);
+            close(pipeD[1][0]);
+            close(pipeD[2][0]);
+            x = rand() % 100;
+            y = rand() % 100;
+            write(pipeD[1][1], &x, sizeof(int));
+            write(pipeD[0][1], &y, sizeof(int));
+            //printf("x: %d\ny: %d\n", x,y);
+            
+            
+            close(pipeD[1][1]);
+            close(pipeD[0][1]);
+            
+        } while(x != y);                  //Überprüfung der beiden Werten aus Kindprozessen
+        
+        if(x == y){
+            printf("Gleichheit\n");      //zur Kontrolle
+            //printf("x: %d\ny: %d\n", x,y);
+            kill(pid_A,SIGKILL);         //Prozess A aufgeben
+            kill(pid_B,SIGKILL);         //Prozess B aufgeben
+            exit(0);                     //Programm beenden
+        }
+        
+    }
+    
+    return 0;
+}
