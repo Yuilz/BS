@@ -1,0 +1,130 @@
+/******************************************************************************
+
+                            Online C Compiler.
+
+Schreiben Sie ein Programm das zwei Prozesse erzeugt.
+Die Prozesse sollen unabhängig voneinander Zufallszahlen zwischen 0 und 100 erstellen.
+Über drei Pipes sollen die Zahlen ausgetauscht werden.
+Wenn alle Zahlen gleich sind, geben alle Prozesse auf, dass sie gewonnen haben.
+*******************************************************************************/
+
+
+#include <stdlib.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <time.h>
+#include <sys/wait.h>
+
+
+
+time_t* tnow;
+int x, y;
+
+
+int main(int argc, char* argv){
+    pid_t pid_A, pid_B, pid_C;
+    int pipeD[3][2];
+    
+    
+    
+    for(int i = 0; i <3; i++) {
+        if(pipe(pipeD[i]) < 0) {
+            perror("pipe failed");
+            exit(1);
+        }
+    }
+    
+    
+    pid_A = fork();
+    if(pid_A < 0) {
+        return 2;
+    }
+    if(pid_A == 0) {
+        //child process 1
+        close(pipeD[1][1]);
+        close(pipeD[1][0]);
+        close(pipeD[2][0]);
+        close(pipeD[2][1]);
+        close(pipeD[0][0]);
+        
+        //read(pipeD[0][0], &x, sizeof(int));
+        srand(time(tnow));
+        x = rand() % 100;
+        printf("randNum1: %d\n", x);
+        write(pipeD[0][1], &x, sizeof(int));
+        
+        
+        close(pipeD[0][1]);
+        return 0;
+    }
+    pid_B = fork();
+    if(pid_B < 0) {
+        return 3;
+    }
+    if(pid_B == 0) {
+        //child process 2
+        close(pipeD[0][0]);
+        close(pipeD[0][1]);
+        close(pipeD[2][1]);
+        close(pipeD[2][0]);
+        close(pipeD[1][0]);
+        //read(pipeD[1][0], &y, sizeof(int)); //auslesen 
+        
+        y = rand() % 100;           //randNum2 erzeugen 
+        printf("randNum2: %d\n", y);
+        
+        write(pipeD[1][1], &y, sizeof(int)); //durch pipe auf parent
+        
+        
+        close(pipeD[1][1]);
+        return 0;
+    } else {
+        //parent process
+        printf("i'm here");
+        close(pipeD[2][0]);
+        close(pipeD[1][1]);
+        close(pipeD[2][1]);
+        close(pipeD[0][1]);
+        
+        //write(pipeD[0][1], &x, sizeof(int));
+        read(pipeD[0][0], &x, sizeof(int));
+        read(pipeD[1][0], &y, sizeof(int));
+        
+        
+        close(pipeD[1][0]);
+        close(pipeD[0][0]);
+        
+        
+            
+        do {
+            //x = rand() % 100;
+            //y = rand() % 100;
+            printf("Ungleichheit\n");
+            close(pipeD[2][1]);
+            close(pipeD[1][0]);
+            close(pipeD[2][0]);
+            close(pipeD[0][0]);
+            x = rand() % 100;
+            y = rand() % 100;
+            write(pipeD[1][1], &x, sizeof(int));
+            write(pipeD[0][1], &y, sizeof(int));
+            printf("x: %d\nx2: %d\n", x,y);
+            
+            
+            close(pipeD[1][1]);
+            close(pipeD[0][1]);
+            
+        } while(x != y);
+        
+        if(x == y){
+            printf("Gleichheit\n");
+            printf("x: %d\nx2: %d\n", x,y);
+            kill(pid_A,SIGKILL);
+            kill(pid_B,SIGKILL);
+            exit(0);
+        }
+        wait(NULL);
+    }
+    
+    return 0;
+}
